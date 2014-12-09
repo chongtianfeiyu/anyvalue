@@ -1,7 +1,7 @@
 #ifndef __ENCODE_H__
 #define __ENCODE_H__
-#include "public.h"
 #include <Python.h>
+#include "public.h"
 #include <stdexcept>
 #include <string>
 #include <map>

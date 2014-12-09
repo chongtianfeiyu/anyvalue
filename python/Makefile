@@ -1,5 +1,5 @@
 PYTHON_LIB_PATH=/usr/lib/python2.7/
-PYTHON_SRC=/usr/include/python2.7
+PYTHON_SRC=/usr/include/python2.6
 
 INCLUDE=-I$(PYTHON_SRC)
 

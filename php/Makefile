@@ -1,5 +1,5 @@
-PHP_EXT_HOME=/opt/lampp/lib/php/extensions/no-debug-non-zts-20100525/
-PHP_SRC=/opt/lampp/include/php/
+PHP_EXT_HOME=/usr/local/php5/lib/php/extensions/no-debug-non-zts-20121212
+PHP_SRC=/usr/local/php5/include/php
 
 INCLUDE=-I$(PHP_SRC) -I$(PHP_SRC)/main -I$(PHP_SRC)/TSRM -I$(PHP_SRC)/Zend
 

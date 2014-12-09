@@ -11,12 +11,6 @@ for($i=0;$i<100000;$i++)
 }
 
 echo microtime(true)."\n";
-for($i=0;$i<100000;$i++)
-{
-	$obj = igbinary_unserialize($str3);
-}
-
-echo microtime(true)."\n";
 
 for($i=0;$i<100000;$i++)
 {
@@ -35,7 +29,6 @@ echo microtime(true)."\n";
 
 for($i=0;$i<100000;$i++)
 {
-	$str = igbinary_serialize($obj);
+	$str = json_encode($obj);
 }
-
 echo microtime(true)."\n";
