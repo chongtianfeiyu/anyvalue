@@ -58,14 +58,13 @@ ZEND_FUNCTION(av_encode)
     try
     {
         encode(sBuf,value);
+        ZVAL_STRINGL(return_value,sBuf.data(),sBuf.size(),1);
     }
     catch(const exception &e)
     {
         zend_error(E_WARNING,"%s",e.what());
+        ZVAL_NULL(return_value);
     }
-
-    ZVAL_STRINGL(return_value,sBuf.data(),sBuf.size(),1);
-
 }
 
 
@@ -79,6 +78,12 @@ ZEND_FUNCTION(av_decode)
         return;
     }
 
+    if(len == 0)
+    {
+        zend_error(E_WARNING,"%s","param must be string");
+        return;
+    }
+
     size_t pos = 0;
     try
     {
@@ -86,6 +91,10 @@ ZEND_FUNCTION(av_decode)
     }
     catch(const exception &e)
     {
+        if(return_value != NULL)
+        {
+            zval_ptr_dtor(return_value_ptr);
+        }
         zend_error(E_WARNING,"%s",e.what());
     }
 }
