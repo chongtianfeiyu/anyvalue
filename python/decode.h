@@ -1,7 +1,7 @@
 #ifndef __DECODE_H__
 #define __DECODE_H__
 #include "public.h"
-#include <python2.7/Python.h>
+#include <Python.h>
 #include <stdexcept>
 #include <string>
 #include <map>

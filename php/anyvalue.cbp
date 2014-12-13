@@ -45,7 +45,6 @@
 		<Unit filename="decode.h" />
 		<Unit filename="encode.cpp" />
 		<Unit filename="encode.h" />
-		<Unit filename="public.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

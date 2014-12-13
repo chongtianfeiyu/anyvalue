@@ -1,40 +1,81 @@
+/*************************************************************************
+	> File Name: encode.cpp
+	> Author: jiangyouxing
+	> Mail: 82776315@qq.com
+	> Created Time: Thu 11 Dec 2014 05:08:53 PM SGT
+ ************************************************************************/
+
 #include "encode.h"
 
-void encode(std::string &sBuf,PyObject *object)
+static bool IS_LIST(zval **val TSRMLS_DC)
 {
-    if (object == Py_True || object == Py_False)
+    int i;
+    HashTable *myht = HASH_OF(*val);
+
+    i = myht ? zend_hash_num_elements(myht) : 0;
+    if (i > 0)
+    {
+        char *key;
+        ulong index, idx;
+        uint key_len;
+        HashPosition pos;
+
+        zend_hash_internal_pointer_reset_ex(myht, &pos);
+        idx = 0;
+        for (;; zend_hash_move_forward_ex(myht, &pos))
+        {
+            i = zend_hash_get_current_key_ex(myht, &key, &key_len, &index, 0, &pos);
+            if (i == 3)
+            {
+                break;
+            }
+
+            if (i == HASH_KEY_IS_STRING)
+            {
+                return false;
+            }
+            else
+            {
+                if (index != idx)
+                {
+                    return false;
+                }
+            }
+            idx++;
+        }
+    }
+
+    return true;
+}
+
+
+void encode(std::string &sBuf,zval *object)
+{
+    if (object->type == IS_BOOL)
     {
         encode_bool(sBuf, object);
     }
-    else if (object == Py_None)
+    else if (object->type == IS_NULL)
     {
         encode_none(sBuf,object);
     }
-    else if (PyString_Check(object))
+    else if (object->type == IS_STRING)
     {
         encode_string(sBuf,object);
     }
-    else if (PyUnicode_Check(object))
-    {
-        encode_unicode(sBuf,object);
-    }
-    else if (PyFloat_Check(object))
+    else if (object->type == IS_DOUBLE)
     {
         encode_float(sBuf, object);
     }
-    else if (PyInt_Check(object) || PyLong_Check(object))
+    else if (object->type == IS_LONG)
     {
         encode_integer(sBuf, object);
     }
-    else if (PyList_Check(object))
+    else if (object->type == IS_ARRAY && IS_LIST(&object))
     {
         encode_list(sBuf,object);
     }
-    else if (PyTuple_Check(object))
-    {
-        encode_tuple(sBuf,object);
-    }
-    else if (PyDict_Check(object))     // use PyMapping_Check(object) instead? -Dan
+    else if (object->type == IS_ARRAY && !IS_LIST(&object))
     {
         encode_map(sBuf,object);
     }
@@ -45,17 +86,11 @@ void encode(std::string &sBuf,PyObject *object)
 }
 
 
-void encode_integer(std::string& sBuf, PyObject * object )
+void encode_integer(std::string& sBuf, zval *object )
 {
     long long llValue = 0;
-    if(PyInt_Check(object))
-    {
-        llValue = PyInt_AsLong(object);
-    }
-    else
-    {
-        llValue = PyLong_AsLongLong(object);
-    }
+
+    llValue = object->value.lval;
 
     if(llValue >= 0)
     {
@@ -111,24 +146,15 @@ void encode_integer(std::string& sBuf, PyObject * object )
     }
 }
 
-void encode_bool(std::string& sBuf, PyObject * object)
+void encode_bool(std::string& sBuf, zval *object)
 {
     sBuf.push_back((char)DType::Bool);
-
-    if (object == Py_True)
-    {
-        sBuf.push_back((char)1);
-    }
-    else
-    {
-        sBuf.push_back((char)0);
-    }
-
+    sBuf.push_back((char)object->value.lval);
 }
 
-void encode_float(std::string& sBuf, PyObject * object)
+void encode_float(std::string& sBuf, zval *object)
 {
-    double flValue = PyFloat_AsDouble(object);
+    double flValue = object->value.dval;
     sBuf.push_back((char)DType::Float);
     uint64_t ui64Tmp = *(uint64_t*)&flValue;
     uint64_t ui64Tmp2 = htonll(ui64Tmp);
@@ -136,12 +162,13 @@ void encode_float(std::string& sBuf, PyObject * object)
 }
 
 
-void encode_string(std::string& sBuf,PyObject * object)
+void encode_string(std::string& sBuf,zval *object)
 {
     char *data = NULL;
-    Py_ssize_t len = 0;
-    PyString_AsStringAndSize(object,&data,&len);
+    size_t len = 0;
 
+    data = object->value.str.val;
+    len = object->value.str.len;
 
     if ( len <= 0xFF )
     {
@@ -163,71 +190,88 @@ void encode_string(std::string& sBuf,PyObject * object)
     sBuf.append(data,len);
 }
 
-void encode_unicode(std::string& sBuf,PyObject * object)
+void encode_list(std::string& sBuf, zval *object)
 {
-    PyObject* pObj = PyUnicode_AsUTF8String(object);
-    encode_string(sBuf,pObj);
-    Py_XDECREF(pObj);
-}
 
+    HashTable *myht;
+    myht = HASH_OF(object);
 
-void encode_list(std::string& sBuf, PyObject * object)
-{
-    Py_ssize_t size = PyList_Size(object);
+    size_t size = zend_hash_num_elements(myht);
     sBuf.push_back((char)DType::Vector);
     uint32_t dwSize = htonl(static_cast<uint32_t>(size));
     sBuf.append(reinterpret_cast<char*>(&dwSize), sizeof(dwSize));
-    for(Py_ssize_t i=0;i<size;i++)
+
+    char *key;
+    zval **data;
+    ulong index;
+    uint key_len;
+    HashPosition pos;
+    HashTable *tmp_ht;
+    int i = 0;
+    zend_hash_internal_pointer_reset_ex(myht, &pos);
+    for (;; zend_hash_move_forward_ex(myht, &pos))
     {
-        encode(sBuf,PyList_GetItem(object,i));
+        i = zend_hash_get_current_key_ex(myht, &key, &key_len, &index, 0, &pos);
+        if (i == 3)
+            break;
+        if (zend_hash_get_current_data_ex(myht, (void **) &data, &pos) == SUCCESS)
+        {
+            encode(sBuf,*data);
+        }
     }
 }
 
-void encode_tuple(std::string& sBuf, PyObject * object)
+void encode_map(std::string& sBuf, zval *object)
 {
-    Py_ssize_t size = PyTuple_Size(object);
-    sBuf.push_back((char)DType::Vector);
-    uint32_t dwSize = htonl(static_cast<uint32_t>(size));
-    sBuf.append(reinterpret_cast<char*>(&dwSize), sizeof(dwSize));
-    for(Py_ssize_t i=0;i<size;i++)
-    {
-        encode(sBuf,PyTuple_GetItem(object,i));
-    }
-}
 
-void encode_map(std::string& sBuf, PyObject * object)
-{
-    Py_ssize_t size = PyDict_Size(object);
-
+    HashTable *myht;
+    myht = HASH_OF(object);
+    size_t size = zend_hash_num_elements(myht);
     sBuf.push_back((char)DType::Map);
     size_t dwSizePos = sBuf.size();
     uint32_t dwSize = 0;//htonl(_cast<unsigned long>(value.map->size()));
     sBuf.append(reinterpret_cast<char*>(&dwSize), sizeof(dwSize));
 
+    char *key;
+    zval **data;
+    ulong index;
+    uint key_len;
+    HashPosition pos;
+    HashTable *tmp_ht;
+    int i = 0;
+    zend_hash_internal_pointer_reset_ex(myht, &pos);
 
-    PyObject *key, *value;
-    Py_ssize_t pos = 0;
-
-    while (PyDict_Next(object, &pos, &key, &value))
+    for (;; zend_hash_move_forward_ex(myht, &pos))
     {
-        if(!PyString_Check(key))
-            continue;
-        ++dwSize;
-        char *keydata = NULL;
-        Py_ssize_t len = 0;
-        PyString_AsStringAndSize(key,&keydata,&len);
-        sBuf.push_back((char)len);
-        sBuf.append(keydata,(size_t)len);
-        encode(sBuf,value);
-    }
+        i = zend_hash_get_current_key_ex(myht, &key, &key_len, &index, 0, &pos);
+        if (i == 3)
+            break;
 
+        if(i == HASH_KEY_IS_STRING)
+        {
+            sBuf.push_back((char)key_len-1);
+            sBuf.append(key,(size_t)key_len-1);
+        }
+        else
+        {
+            char szData[20];
+            snprintf(szData,sizeof(szData),"%d",(int)index);
+            sBuf.push_back((char)strlen(szData));
+            sBuf.append(szData);
+        }
+
+        if (zend_hash_get_current_data_ex(myht, (void **) &data, &pos) == SUCCESS)
+        {
+            ++dwSize;
+            encode(sBuf,*data);
+        }
+    }
     dwSize = htonl(dwSize);
     memcpy((char*)sBuf.data()+dwSizePos, reinterpret_cast<char*>(&dwSize), sizeof(dwSize));
-
 }
 
 
-void encode_none(std::string& sBuf, PyObject * object)
+void encode_none(std::string& sBuf, zval *object)
 {
     sBuf.push_back((char)DType::Null);
 }

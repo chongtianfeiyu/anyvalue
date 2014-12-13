@@ -1,4 +1,4 @@
-#include <python2.7/Python.h>
+#include <Python.h>
 #include "decode.h"
 #include "encode.h"
 using namespace std;
