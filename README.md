@@ -5,6 +5,7 @@ anyvalue
 
 php
 ========
+
 $obj['abc']='dasdasdsa';
 $obj['bcd']=10000;
 $obj['name']="sssssss";
